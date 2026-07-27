@@ -1,8 +1,8 @@
 import ArticleCard from "@/components/ArticleCard";
 import FilterBar from "@/components/FilterBar";
 import SearchInput from "@/components/SearchInput";
-import TopList from "@/components/TopList";
-import { getArticles, getCategories, getTopByCategory } from "@/lib/db";
+import TimeRangeFilter from "@/components/TimeRangeFilter";
+import { getArticles, getCategories, TimeRange } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -13,16 +13,12 @@ export default async function Home({
 }) {
   const category = searchParams?.category || undefined;
   const q = searchParams?.q || undefined;
+  const range = (searchParams?.range as TimeRange) || "24h";
 
-  const [articles, categories, topRepos, topModels, topDatasets, topCited] =
-    await Promise.all([
-      getArticles({ category, q }),
-      getCategories(),
-      getTopByCategory("GitHub Repo"),
-      getTopByCategory("Model"),
-      getTopByCategory("Dataset"),
-      getTopByCategory("Research"),
-    ]);
+  const [articles, categories] = await Promise.all([
+    getArticles({ category, q, range }),
+    getCategories(),
+  ]);
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -32,20 +28,18 @@ export default async function Home({
             AI Update <span className="text-blue-600">Hub</span>
           </h1>
           <p className="text-xs text-gray-500">
-            Last 24h of AI news, research, and GitHub repos — no AI rewriting, titles as published
+            AI news, research, models, and GitHub repos — no AI rewriting, titles as published
           </p>
         </div>
       </header>
 
       <section className="max-w-3xl mx-auto px-6 py-8">
-        <TopList title="⭐ Top Starred GitHub Repos" items={topRepos} />
-        <TopList title="🤗 Trending Models" items={topModels} />
-        <TopList title="🤗 Trending Datasets" items={topDatasets} />
-        <TopList title="📄 Most Cited Papers" items={topCited} />
-
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
-          <FilterBar categories={categories} />
-          <SearchInput />
+        <div className="flex flex-col gap-3 mb-6">
+          <TimeRangeFilter />
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <FilterBar categories={categories} />
+            <SearchInput />
+          </div>
         </div>
 
         <div className="space-y-2">

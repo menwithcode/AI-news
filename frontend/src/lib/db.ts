@@ -5,10 +5,14 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 const SELECT_COLUMNS = `id, title, original_url, source_name, ai_summary, ai_keywords, category, published_at, popularity_score`;
 
+export type TimeRange = "24h" | "week" | "month" | "top";
+
 export async function getArticles(params: {
   category?: string;
   q?: string;
+  range?: TimeRange;
 }): Promise<Article[]> {
+  const range = params.range ?? "24h";
   const conditions: string[] = [];
   const values: string[] = [];
 
@@ -21,13 +25,25 @@ export async function getArticles(params: {
     conditions.push(`title ILIKE $${values.length}`);
   }
 
+  let orderBy = "published_at DESC";
+  if (range === "24h") {
+    conditions.push(`published_at > NOW() - INTERVAL '24 hours'`);
+  } else if (range === "week") {
+    conditions.push(`published_at > NOW() - INTERVAL '7 days'`);
+  } else if (range === "month") {
+    conditions.push(`published_at > NOW() - INTERVAL '30 days'`);
+  } else if (range === "top") {
+    conditions.push(`popularity_score IS NOT NULL`);
+    orderBy = "popularity_score DESC";
+  }
+
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const result = await pool.query(
     `SELECT ${SELECT_COLUMNS}
      FROM news_articles
      ${where}
-     ORDER BY published_at DESC
+     ORDER BY ${orderBy}
      LIMIT 100`,
     values
   );
@@ -39,19 +55,4 @@ export async function getCategories(): Promise<string[]> {
     `SELECT DISTINCT category FROM news_articles WHERE category IS NOT NULL ORDER BY category`
   );
   return result.rows.map((row) => row.category);
-}
-
-export async function getTopByCategory(
-  category: string,
-  limit = 10
-): Promise<Article[]> {
-  const result = await pool.query(
-    `SELECT ${SELECT_COLUMNS}
-     FROM news_articles
-     WHERE category = $1 AND popularity_score IS NOT NULL
-     ORDER BY popularity_score DESC
-     LIMIT $2`,
-    [category, limit]
-  );
-  return result.rows;
 }
