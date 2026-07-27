@@ -9,20 +9,27 @@ SEARCH_URL = "https://api.github.com/search/repositories"
 
 def fetch_trending_ai_repos() -> list[dict]:
     since = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime("%Y-%m-%d")
-    topic_clause = " OR ".join(f"topic:{topic}" for topic in GITHUB_TOPICS)
-    query = f"({topic_clause}) pushed:>{since}"
 
-    response = requests.get(
-        SEARCH_URL,
-        params={"q": query, "sort": "stars", "order": "desc", "per_page": 50},
-        headers={"Accept": "application/vnd.github+json"},
-        timeout=30,
-    )
-    response.raise_for_status()
+    seen_ids = set()
+    repos = []
+    for topic in GITHUB_TOPICS:
+        response = requests.get(
+            SEARCH_URL,
+            params={
+                "q": f"topic:{topic} pushed:>{since}",
+                "sort": "stars",
+                "order": "desc",
+                "per_page": 50,
+            },
+            headers={"Accept": "application/vnd.github+json"},
+            timeout=30,
+        )
+        response.raise_for_status()
+        for repo in response.json().get("items", []):
+            if repo["id"] in seen_ids or repo["stargazers_count"] < GITHUB_MIN_STARS:
+                continue
+            seen_ids.add(repo["id"])
+            repos.append(repo)
 
-    repos = [
-        repo
-        for repo in response.json().get("items", [])
-        if repo["stargazers_count"] >= GITHUB_MIN_STARS
-    ]
+    repos.sort(key=lambda r: r["stargazers_count"], reverse=True)
     return repos[:GITHUB_MAX_RESULTS]
