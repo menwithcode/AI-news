@@ -4,12 +4,11 @@ from datetime import datetime, timedelta, timezone
 import feedparser
 
 from .citations import backfill_citations
+from .config import LOOKBACK_HOURS
 from .db import get_existing_urls, upsert_articles
 from .github_repos import fetch_trending_ai_repos
 from .hf_trending import fetch_trending_datasets, fetch_trending_models
 from .sources import RSS_SOURCES
-
-CUTOFF_HOURS = 24
 
 
 def _entry_published(entry):
@@ -64,7 +63,7 @@ def _hf_row(category: str, item: dict) -> dict:
 
 def main() -> None:
     existing_urls = get_existing_urls()
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=CUTOFF_HOURS)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=LOOKBACK_HOURS)
     rows = []
 
     for source in RSS_SOURCES:
@@ -78,7 +77,9 @@ def main() -> None:
             rows.append(_rss_row(source, entry, published))
 
     try:
-        rows.extend(_github_row(repo) for repo in fetch_trending_ai_repos())
+        rows.extend(
+            _github_row(repo) for repo in fetch_trending_ai_repos(hours=LOOKBACK_HOURS)
+        )
     except Exception as exc:
         print(f"GitHub repo fetch failed: {exc}")
 

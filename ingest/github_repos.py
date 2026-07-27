@@ -7,8 +7,8 @@ from .sources import GITHUB_MAX_RESULTS, GITHUB_MIN_STARS, GITHUB_TOPICS
 SEARCH_URL = "https://api.github.com/search/repositories"
 
 
-def fetch_trending_ai_repos() -> list[dict]:
-    since = (datetime.now(timezone.utc) - timedelta(hours=24)).strftime("%Y-%m-%d")
+def fetch_trending_ai_repos(hours: int = 24) -> list[dict]:
+    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%d")
 
     seen_ids = set()
     repos = []
