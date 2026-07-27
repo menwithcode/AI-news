@@ -27,5 +27,10 @@ USING (true);
 -- 2. Strict Write Access
 -- By enabling RLS, all actions (insert/update/delete) are denied by default for `anon` and `authenticated` roles.
 -- The Supabase `service_role` key automatically bypasses RLS, so it will have full write access.
--- Therefore, we do not need to grant explicit write access policies for the service role, 
+-- Therefore, we do not need to grant explicit write access policies for the service role,
 -- and keeping no insert/update/delete policies effectively locks down writes for everyone else!
+
+-- Migration (2026-07-28): popularity metric, meaning depends on category
+-- (GitHub stars, Hugging Face likes, arXiv citation count). NULL where no
+-- metric applies (News, Review).
+ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS popularity_score INTEGER;

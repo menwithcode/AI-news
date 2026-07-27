@@ -7,4 +7,5 @@ export interface Article {
   ai_keywords: string[];
   category: string | null;
   published_at: string;
+  popularity_score: number | null;
 }

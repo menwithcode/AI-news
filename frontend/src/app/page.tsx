@@ -1,7 +1,8 @@
 import ArticleCard from "@/components/ArticleCard";
 import FilterBar from "@/components/FilterBar";
 import SearchInput from "@/components/SearchInput";
-import { getArticles, getCategories } from "@/lib/db";
+import TopList from "@/components/TopList";
+import { getArticles, getCategories, getTopByCategory } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +14,15 @@ export default async function Home({
   const category = searchParams?.category || undefined;
   const q = searchParams?.q || undefined;
 
-  const [articles, categories] = await Promise.all([
-    getArticles({ category, q }),
-    getCategories(),
-  ]);
+  const [articles, categories, topRepos, topModels, topDatasets, topCited] =
+    await Promise.all([
+      getArticles({ category, q }),
+      getCategories(),
+      getTopByCategory("GitHub Repo"),
+      getTopByCategory("Model"),
+      getTopByCategory("Dataset"),
+      getTopByCategory("Research"),
+    ]);
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -32,6 +38,11 @@ export default async function Home({
       </header>
 
       <section className="max-w-3xl mx-auto px-6 py-8">
+        <TopList title="⭐ Top Starred GitHub Repos" items={topRepos} />
+        <TopList title="🤗 Trending Models" items={topModels} />
+        <TopList title="🤗 Trending Datasets" items={topDatasets} />
+        <TopList title="📄 Most Cited Papers" items={topCited} />
+
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
           <FilterBar categories={categories} />
           <SearchInput />

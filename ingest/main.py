@@ -3,8 +3,10 @@ from datetime import datetime, timedelta, timezone
 
 import feedparser
 
+from .citations import backfill_citations
 from .db import get_existing_urls, upsert_articles
 from .github_repos import fetch_trending_ai_repos
+from .hf_trending import fetch_trending_datasets, fetch_trending_models
 from .sources import RSS_SOURCES
 
 CUTOFF_HOURS = 24
@@ -27,6 +29,7 @@ def _rss_row(source: dict, entry, published: datetime) -> dict:
         "ai_keywords": [tag["term"] for tag in tags],
         "category": source["category"],
         "published_at": published.isoformat(),
+        "popularity_score": None,
     }
 
 
@@ -40,13 +43,29 @@ def _github_row(repo: dict) -> dict:
         "ai_keywords": repo.get("topics", []),
         "category": "GitHub Repo",
         "published_at": published.isoformat(),
+        "popularity_score": repo["stargazers_count"],
+    }
+
+
+def _hf_row(category: str, item: dict) -> dict:
+    published = datetime.fromisoformat(item["createdAt"].replace("Z", "+00:00"))
+    url_prefix = "datasets/" if category == "Dataset" else ""
+    return {
+        "title": item["id"],
+        "original_url": f"https://huggingface.co/{url_prefix}{item['id']}",
+        "source_name": "Hugging Face",
+        "ai_summary": item.get("description"),
+        "ai_keywords": item.get("tags", [])[:20],
+        "category": category,
+        "published_at": published.isoformat(),
+        "popularity_score": item.get("likes"),
     }
 
 
 def main() -> None:
     existing_urls = get_existing_urls()
     cutoff = datetime.now(timezone.utc) - timedelta(hours=CUTOFF_HOURS)
-    new_rows = []
+    rows = []
 
     for source in RSS_SOURCES:
         feed = feedparser.parse(source["feed_url"])
@@ -56,18 +75,27 @@ def main() -> None:
             published = _entry_published(entry)
             if published is None or published < cutoff:
                 continue
-            new_rows.append(_rss_row(source, entry, published))
+            rows.append(_rss_row(source, entry, published))
 
     try:
-        for repo in fetch_trending_ai_repos():
-            if repo["html_url"] in existing_urls:
-                continue
-            new_rows.append(_github_row(repo))
+        rows.extend(_github_row(repo) for repo in fetch_trending_ai_repos())
     except Exception as exc:
         print(f"GitHub repo fetch failed: {exc}")
 
-    upsert_articles(new_rows)
-    print(f"Ingested {len(new_rows)} new items.")
+    try:
+        rows.extend(_hf_row("Model", model) for model in fetch_trending_models())
+    except Exception as exc:
+        print(f"HF model fetch failed: {exc}")
+
+    try:
+        rows.extend(_hf_row("Dataset", dataset) for dataset in fetch_trending_datasets())
+    except Exception as exc:
+        print(f"HF dataset fetch failed: {exc}")
+
+    upsert_articles(rows)
+    print(f"Upserted {len(rows)} items.")
+
+    backfill_citations()
 
 
 if __name__ == "__main__":
