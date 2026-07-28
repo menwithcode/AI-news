@@ -1,5 +1,9 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import AskAIButton from "@/components/AskAIButton";
 import { Article } from "@/lib/types";
+import { isRead, markRead } from "@/lib/readStatus";
 
 function popularityLabel(item: Article): string | null {
   if (item.popularity_score === null) return null;
@@ -13,9 +17,23 @@ function popularityLabel(item: Article): string | null {
 
 export default function ArticleCard({ item }: { item: Article }) {
   const popularity = popularityLabel(item);
+  const [read, setRead] = useState(false);
+
+  useEffect(() => {
+    setRead(isRead(item.id));
+  }, [item.id]);
+
+  function handleClick() {
+    markRead(item.id);
+    setRead(true);
+  }
 
   return (
-    <article className="border rounded-xl p-5 mb-4 shadow-sm bg-white">
+    <article
+      className={`border rounded-xl p-5 mb-4 shadow-sm ${
+        read ? "bg-white" : "bg-blue-50 border-blue-200"
+      }`}
+    >
       <div className="flex gap-2 mb-2 flex-wrap items-center">
         <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-700">
           {item.category}
@@ -40,6 +58,7 @@ export default function ArticleCard({ item }: { item: Article }) {
           href={item.original_url}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={handleClick}
           className="hover:text-blue-600 hover:underline"
         >
           {item.title}
