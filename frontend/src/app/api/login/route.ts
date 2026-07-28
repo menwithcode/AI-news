@@ -1,8 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SignJWT } from "jose";
 import bcrypt from "bcryptjs";
+import {
+  clearLoginAttempts,
+  isLoginRateLimited,
+  recordFailedLogin,
+} from "@/lib/db";
+
+function getClientIp(req: NextRequest): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  return forwarded ? forwarded.split(",")[0].trim() : "unknown";
+}
 
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+
+  if (await isLoginRateLimited(ip)) {
+    return NextResponse.json(
+      { error: "Too many attempts. Try again later." },
+      { status: 429 }
+    );
+  }
+
   const { username, password } = await req.json();
 
   const passwordHash = Buffer.from(
@@ -17,8 +36,11 @@ export async function POST(req: NextRequest) {
     (await bcrypt.compare(password, passwordHash));
 
   if (!validUsername || !validPassword) {
+    await recordFailedLogin(ip);
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
+
+  await clearLoginAttempts(ip);
 
   const secret = new TextEncoder().encode(process.env.SESSION_SECRET);
   const token = await new SignJWT({ sub: username })

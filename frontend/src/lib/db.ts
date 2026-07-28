@@ -69,3 +69,23 @@ export async function savePushSubscription(sub: {
     [sub.endpoint, sub.p256dh, sub.auth]
   );
 }
+
+const LOGIN_RATE_LIMIT_MAX = 5;
+const LOGIN_RATE_LIMIT_WINDOW_MINUTES = 15;
+
+export async function isLoginRateLimited(ip: string): Promise<boolean> {
+  const result = await pool.query(
+    `SELECT count(*) FROM login_attempts
+     WHERE ip = $1 AND attempted_at > NOW() - INTERVAL '${LOGIN_RATE_LIMIT_WINDOW_MINUTES} minutes'`,
+    [ip]
+  );
+  return parseInt(result.rows[0].count, 10) >= LOGIN_RATE_LIMIT_MAX;
+}
+
+export async function recordFailedLogin(ip: string): Promise<void> {
+  await pool.query(`INSERT INTO login_attempts (ip) VALUES ($1)`, [ip]);
+}
+
+export async function clearLoginAttempts(ip: string): Promise<void> {
+  await pool.query(`DELETE FROM login_attempts WHERE ip = $1`, [ip]);
+}

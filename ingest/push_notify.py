@@ -60,6 +60,11 @@ def notify_new_items(count: int) -> None:
             if exc.response is not None and exc.response.status_code in (404, 410):
                 _delete_subscription(endpoint)
             else:
-                print(f"Push failed for {endpoint}: {exc}")
+                status = exc.response.status_code if exc.response is not None else "?"
+                # Don't log the full endpoint -- it's a per-device push URL,
+                # and this repo is public (GitHub Actions logs are visible
+                # to anyone). A short suffix is enough to tell subscriptions
+                # apart for debugging without exposing the real URL.
+                print(f"Push failed (HTTP {status}) for subscription ...{endpoint[-12:]}")
 
     print(f"Sent {sent} push notifications.")

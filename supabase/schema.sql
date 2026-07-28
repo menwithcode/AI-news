@@ -17,18 +17,19 @@ CREATE TABLE news_articles (
 -- Enable Row Level Security (RLS)
 ALTER TABLE news_articles ENABLE ROW LEVEL SECURITY;
 
--- 1. Read Access for Public
--- Allows anyone (including anonymous users) to read the news articles.
-CREATE POLICY "Allow public read access" 
-ON news_articles 
-FOR SELECT 
-USING (true);
-
--- 2. Strict Write Access
--- By enabling RLS, all actions (insert/update/delete) are denied by default for `anon` and `authenticated` roles.
--- The Supabase `service_role` key automatically bypasses RLS, so it will have full write access.
--- Therefore, we do not need to grant explicit write access policies for the service role,
--- and keeping no insert/update/delete policies effectively locks down writes for everyone else!
+-- No policies: deny-all for `anon`/`authenticated` via Supabase's Data API
+-- (PostgREST), which this project never uses -- both the frontend and the
+-- ingestion script connect directly as the table owner via DATABASE_URL,
+-- which bypasses RLS entirely regardless of policies.
+--
+-- Migration (2026-07-28, security review): originally had an explicit
+-- "Allow public read access" policy here, from when the plan was to read
+-- via supabase-js + anon key. That path was dropped early on in favor of
+-- direct Postgres access, but the permissive policy was left in place --
+-- meaning anyone with the anon key could read this table over the Data
+-- API, completely bypassing the app's login gate. Removed; see
+-- DROP POLICY below for the exact fix applied to the live DB.
+DROP POLICY IF EXISTS "Allow public read access" ON news_articles;
 
 -- Migration (2026-07-28): popularity metric, meaning depends on category
 -- (GitHub stars, Hugging Face likes, arXiv citation count). NULL where no
@@ -36,12 +37,24 @@ USING (true);
 ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS popularity_score INTEGER;
 
 -- Migration (2026-07-28): Web Push subscriptions, one row per subscribed
--- browser/device. Not exposed via PostgREST/anon key (this project never
--- uses that path -- both frontend and ingestion connect directly via
--- DATABASE_URL), so no RLS needed here.
+-- browser/device.
 CREATE TABLE IF NOT EXISTS push_subscriptions (
     endpoint TEXT PRIMARY KEY,
     p256dh TEXT NOT NULL,
     auth TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Migration (2026-07-28, security review): enable RLS with no policies
+-- (deny-all via the Data API) -- same reasoning as news_articles above.
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Migration (2026-07-28, security review): track failed login attempts
+-- per IP for basic brute-force rate limiting on /api/login.
+CREATE TABLE IF NOT EXISTS login_attempts (
+    id SERIAL PRIMARY KEY,
+    ip TEXT NOT NULL,
+    attempted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_time ON login_attempts (ip, attempted_at);
+ALTER TABLE login_attempts ENABLE ROW LEVEL SECURITY;
