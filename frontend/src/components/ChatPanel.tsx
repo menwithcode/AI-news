@@ -10,6 +10,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   reasoning?: string;
+  stopped?: boolean;
 }
 
 function buildSystemPrompt(article: Article): string {
@@ -34,11 +35,15 @@ export default function ChatPanel() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!activeArticle) return;
     setMessages([]);
     send("What's new or notable about this? Summarize the key points.", []);
+    return () => {
+      abortControllerRef.current?.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeArticle?.id]);
 
@@ -58,11 +63,15 @@ export default function ChatPanel() {
       ...nextMessages,
     ];
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: apiMessages }),
+        signal: controller.signal,
       });
       if (!res.ok || !res.body) {
         throw new Error(await res.text());
@@ -100,11 +109,18 @@ export default function ChatPanel() {
           }
         }
       }
-    } catch {
-      assistantMessage.content = "Sorry, something went wrong reaching the AI.";
-      setMessages([...nextMessages, { ...assistantMessage }]);
+    } catch (err) {
+      if ((err as Error).name === "AbortError") {
+        assistantMessage.stopped = true;
+        setMessages([...nextMessages, { ...assistantMessage }]);
+      } else {
+        assistantMessage.content =
+          assistantMessage.content || "Sorry, something went wrong reaching the AI.";
+        setMessages([...nextMessages, { ...assistantMessage }]);
+      }
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
   }
 
@@ -114,6 +130,10 @@ export default function ChatPanel() {
     const text = input;
     setInput("");
     send(text, messages);
+  }
+
+  function handleStop() {
+    abortControllerRef.current?.abort();
   }
 
   if (!activeArticle) return null;
@@ -154,6 +174,9 @@ export default function ChatPanel() {
             ) : (
               m.content || (loading && i === messages.length - 1 ? "…" : "")
             )}
+            {m.stopped && (
+              <div className="text-xs text-gray-400 mt-1 not-italic">— stopped</div>
+            )}
           </div>
         ))}
         <div ref={bottomRef} />
@@ -164,15 +187,25 @@ export default function ChatPanel() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask a follow-up..."
-          className="flex-1 text-sm px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-        <button
-          type="submit"
           disabled={loading}
-          className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg disabled:opacity-50"
-        >
-          Send
-        </button>
+          className="flex-1 text-sm px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
+        />
+        {loading ? (
+          <button
+            type="button"
+            onClick={handleStop}
+            className="px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-lg"
+          >
+            Stop
+          </button>
+        ) : (
+          <button
+            type="submit"
+            className="px-4 py-2 text-sm font-semibold bg-blue-600 text-white rounded-lg disabled:opacity-50"
+          >
+            Send
+          </button>
+        )}
       </form>
     </div>
   );
