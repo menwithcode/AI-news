@@ -8,11 +8,11 @@ function SplitView({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      <div className={activeArticle ? "w-1/2 overflow-y-auto" : "w-full"}>
+      <div className={activeArticle ? "w-full md:w-1/2 md:overflow-y-auto" : "w-full"}>
         {children}
       </div>
       {activeArticle && (
-        <div className="w-1/2 border-l bg-white">
+        <div className="fixed inset-0 z-50 bg-white md:static md:z-auto md:w-1/2 md:h-screen md:sticky md:top-0 md:border-l">
           <ChatPanel />
         </div>
       )}
