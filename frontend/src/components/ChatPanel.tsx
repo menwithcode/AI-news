@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useChat } from "@/lib/chatContext";
+import { loadChat, saveChat } from "@/lib/chatStorage";
 import { Article } from "@/lib/types";
 
 interface Message {
@@ -39,8 +40,13 @@ export default function ChatPanel() {
 
   useEffect(() => {
     if (!activeArticle) return;
-    setMessages([]);
-    send("What's new or notable about this? Summarize the key points.", []);
+    const saved = loadChat(activeArticle.id);
+    if (saved && saved.length > 0) {
+      setMessages(saved);
+    } else {
+      setMessages([]);
+      send("What's new or notable about this? Summarize the key points.", []);
+    }
     return () => {
       abortControllerRef.current?.abort();
     };
@@ -121,6 +127,9 @@ export default function ChatPanel() {
     } finally {
       setLoading(false);
       abortControllerRef.current = null;
+      if (activeArticle) {
+        saveChat(activeArticle.id, [...nextMessages, assistantMessage]);
+      }
     }
   }
 

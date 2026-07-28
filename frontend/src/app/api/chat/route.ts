@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free";
+const MODEL = "inclusionai/ling-3.0-flash:free";
 
 export async function POST(req: NextRequest) {
   if (!OPENROUTER_API_KEY) {
