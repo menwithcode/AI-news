@@ -1,3 +1,4 @@
+import AskAIButton from "@/components/AskAIButton";
 import { Article } from "@/lib/types";
 
 function popularityLabel(item: Article): string | null {
@@ -44,9 +45,12 @@ export default function ArticleCard({ item }: { item: Article }) {
           {item.title}
         </a>
       </h2>
-      <p className="text-xs text-gray-500 mb-2">
-        {new Date(item.published_at).toLocaleString("en-US")}
-      </p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-gray-500">
+          {new Date(item.published_at).toLocaleString("en-US")}
+        </p>
+        <AskAIButton item={item} />
+      </div>
       {item.ai_summary && (
         <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded border-l-2 border-blue-300 line-clamp-3">
           {item.ai_summary}
