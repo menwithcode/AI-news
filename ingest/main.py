@@ -8,6 +8,7 @@ from .config import LOOKBACK_HOURS
 from .db import get_existing_urls, upsert_articles
 from .github_repos import fetch_trending_ai_repos
 from .hf_trending import fetch_trending_datasets, fetch_trending_models
+from .push_notify import notify_new_items
 from .sources import RSS_SOURCES
 
 
@@ -93,8 +94,16 @@ def main() -> None:
     except Exception as exc:
         print(f"HF dataset fetch failed: {exc}")
 
+    # GitHub/HF rows always get re-appended (to refresh stars/likes) even
+    # when already in the DB, so len(rows) overcounts "new" items. Only
+    # rows whose URL wasn't already present before this run are genuinely
+    # new -- that's what should drive the notification count.
+    new_count = sum(1 for row in rows if row["original_url"] not in existing_urls)
+
     upsert_articles(rows)
-    print(f"Upserted {len(rows)} items.")
+    print(f"Upserted {len(rows)} items ({new_count} new).")
+
+    notify_new_items(new_count)
 
     backfill_citations()
 

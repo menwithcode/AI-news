@@ -56,3 +56,16 @@ export async function getCategories(): Promise<string[]> {
   );
   return result.rows.map((row) => row.category);
 }
+
+export async function savePushSubscription(sub: {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}): Promise<void> {
+  await pool.query(
+    `INSERT INTO push_subscriptions (endpoint, p256dh, auth)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (endpoint) DO NOTHING`,
+    [sub.endpoint, sub.p256dh, sub.auth]
+  );
+}

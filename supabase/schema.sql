@@ -34,3 +34,14 @@ USING (true);
 -- (GitHub stars, Hugging Face likes, arXiv citation count). NULL where no
 -- metric applies (News, Review).
 ALTER TABLE news_articles ADD COLUMN IF NOT EXISTS popularity_score INTEGER;
+
+-- Migration (2026-07-28): Web Push subscriptions, one row per subscribed
+-- browser/device. Not exposed via PostgREST/anon key (this project never
+-- uses that path -- both frontend and ingestion connect directly via
+-- DATABASE_URL), so no RLS needed here.
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    endpoint TEXT PRIMARY KEY,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);

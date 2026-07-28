@@ -1,6 +1,8 @@
 import ArticleCard from "@/components/ArticleCard";
 import ChatLayout from "@/components/ChatLayout";
 import FilterBar from "@/components/FilterBar";
+import NewSinceLastVisit from "@/components/NewSinceLastVisit";
+import NotificationSubscribe from "@/components/NotificationSubscribe";
 import SearchInput from "@/components/SearchInput";
 import SignOutButton from "@/components/SignOutButton";
 import TimeRangeFilter from "@/components/TimeRangeFilter";
@@ -35,7 +37,10 @@ export default async function Home({
                 AI news, research, models, and GitHub repos — no AI rewriting, titles as published
               </p>
             </div>
-            <SignOutButton />
+            <div className="flex flex-col items-end gap-2">
+              <SignOutButton />
+              <NotificationSubscribe />
+            </div>
           </div>
         </header>
 
@@ -47,6 +52,8 @@ export default async function Home({
               <SearchInput />
             </div>
           </div>
+
+          <NewSinceLastVisit articles={articles} />
 
           <div className="space-y-2">
             {articles.length === 0 && (
