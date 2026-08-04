@@ -8,7 +8,7 @@ import { isRead, markRead } from "@/lib/readStatus";
 function popularityLabel(item: Article): string | null {
   if (item.popularity_score === null) return null;
   const count = item.popularity_score.toLocaleString("en-US");
-  if (item.category === "GitHub Repo") return `★ ${count} stars`;
+  if (item.category === "Code Repo") return `★ ${count} stars`;
   if (item.category === "Model" || item.category === "Dataset")
     return `❤ ${count} likes`;
   if (item.category === "Research") return `\u{1F4C4} ${count} citations`;

@@ -34,7 +34,7 @@ export default async function Home({
                 AI Update <span className="text-blue-600">Hub</span>
               </h1>
               <p className="text-xs text-gray-500">
-                AI news, research, models, and GitHub repos — no AI rewriting, titles as published
+                AI news, peer-reviewed research, models, datasets, and code repos — no AI rewriting, titles as published
               </p>
             </div>
             <div className="flex flex-col items-end gap-2">
