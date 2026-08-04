@@ -2,8 +2,10 @@ import calendar
 from datetime import datetime, timedelta, timezone
 
 import feedparser
+from bs4 import BeautifulSoup
 
 from .citations import backfill_citations
+from .codeberg_repos import fetch_trending_ai_repos as fetch_codeberg_repos
 from .config import LOOKBACK_HOURS
 from .db import get_existing_urls, upsert_articles
 from .dblp import fetch_published_papers as fetch_dblp_papers
@@ -16,6 +18,13 @@ from .kaggle_data import fetch_trending_models as fetch_kaggle_models
 from .openreview import fetch_published_papers as fetch_openreview_papers
 from .push_notify import notify_new_items
 from .sources import RSS_SOURCES
+from .zenodo import fetch_recent_records as fetch_zenodo_records
+
+
+def _strip_html(html: str | None) -> str | None:
+    if not html:
+        return None
+    return BeautifulSoup(html, "html.parser").get_text().strip() or None
 
 CODE_REPO_CATEGORY = "Code Repo"
 
@@ -147,6 +156,36 @@ def _openreview_row(note: dict) -> dict:
     }
 
 
+def _zenodo_row(record: dict) -> dict:
+    metadata = record["metadata"]
+    keywords = []
+    for kw in metadata.get("keywords", []):
+        keywords.extend(part.strip() for part in kw.split(","))
+    return {
+        "title": metadata["title"],
+        "original_url": record["doi_url"],
+        "source_name": "Zenodo",
+        "ai_summary": _strip_html(metadata.get("description")),
+        "ai_keywords": keywords[:20],
+        "category": "Dataset",
+        "published_at": record["created"],
+        "popularity_score": None,
+    }
+
+
+def _codeberg_row(repo: dict) -> dict:
+    return {
+        "title": repo["full_name"],
+        "original_url": repo["html_url"],
+        "source_name": "Codeberg",
+        "ai_summary": repo.get("description"),
+        "ai_keywords": repo.get("topics", []),
+        "category": CODE_REPO_CATEGORY,
+        "published_at": repo["updated_at"],
+        "popularity_score": repo["stars_count"],
+    }
+
+
 def main() -> None:
     existing_urls = get_existing_urls()
     cutoff = datetime.now(timezone.utc) - timedelta(hours=LOOKBACK_HOURS)
@@ -202,7 +241,17 @@ def main() -> None:
     except Exception as exc:
         print(f"OpenReview fetch failed: {exc}")
 
-    # GitHub/GitLab/HF/Kaggle rows always get re-appended (to refresh
+    try:
+        rows.extend(_zenodo_row(record) for record in fetch_zenodo_records())
+    except Exception as exc:
+        print(f"Zenodo fetch failed: {exc}")
+
+    try:
+        rows.extend(_codeberg_row(repo) for repo in fetch_codeberg_repos(hours=LOOKBACK_HOURS))
+    except Exception as exc:
+        print(f"Codeberg fetch failed: {exc}")
+
+    # GitHub/GitLab/Codeberg/HF/Kaggle rows always get re-appended (to refresh
     # stars/likes/votes) even when already in the DB, so len(rows)
     # overcounts "new" items. Only rows whose URL wasn't already present
     # before this run are genuinely new -- that's what should drive the
